@@ -9,8 +9,8 @@ app.use(express.json());
 const writeFileQA = (file, obj) => {
     fs.writeFileSync(file, obj);
 }
-const readFileQA = () => {
-    const dataQABuffer = fs.readFileSync("quiz.json");
+const readFile = (file) => {
+    const dataQABuffer = fs.readFileSync(file);
     const dataJSON = JSON.parse(dataQABuffer.toString());
     return dataJSON;
 }
@@ -18,14 +18,14 @@ const readFileQA = () => {
 
 ////////////  USER     /////////////////
 
-const writeFileUSER = (file, obj) => {
-    fs.writeFileSync(file, obj);
-}
-const readFileUSER = (file) => {
-    const dataQABuffer = fs.readFileSync(file);
-    const dataJSON = JSON.parse(dataQABuffer.toString());
-    return dataJSON;
-}
+// const writeFileUSER = (file, obj) => {
+//     fs.writeFileSync(file, obj);
+// }
+// const readFileUSER = (file) => {
+//     const dataQABuffer = fs.readFileSync(file);
+//     const dataJSON = JSON.parse(dataQABuffer.toString());
+//     return dataJSON;
+// }
 ///////////  RESPONSE ///////////////////////////
 
 const sendResponse = (response, data, msg, statusCode) => {
@@ -39,7 +39,7 @@ const sendResponse = (response, data, msg, statusCode) => {
 //////////////// Request  -  Quiz    ///////////////////////////////
 
 app.get('/Quiz', (req, res) => {
-    const dataJSON = readFileQA();
+    const dataJSON = readFile();
     return sendResponse(res, dataJSON, 'view all quiz', 200);
 })
 
@@ -48,7 +48,7 @@ app.post('/Quiz/createQA', (req, res) => {
     if (!question || !answer1 || !answer2 || !answer3 || !answer4) {
         return sendResponse(res, null, 'Please provide question and answers', 400);
     }
-    const dataJSON = readFileQA();
+    const dataJSON = readFile("quiz.json");
     const found = dataJSON.some(el => el.question === question);
     if (found) {
         return sendResponse(res, null, 'Question already exists', 400);
@@ -73,7 +73,7 @@ app.delete('/Quiz/deleteById', (req, res) => {
     if (!id) {
         return sendResponse(res, null, 'please provide id', 400);
     }
-    const dataJSON = readFileQA();
+    const dataJSON = readFile("quiz.json");
     const indexRemove = dataJSON.findIndex(item => item.id === id)
     dataJSON.splice(indexRemove, 1);
 
@@ -88,7 +88,7 @@ app.put('/Quiz/update', (req, res) => {
         return sendResponse(res, null, 'please provide id', 400);
     }
 
-    const dataJSON = readFileQA();
+    const dataJSON = readFile("quiz.json");
     const indexRemove = dataJSON.findIndex(item => item.id === id)
     dataJSON.splice(indexRemove, 1);
 
@@ -113,9 +113,61 @@ app.put('/Quiz/update', (req, res) => {
 
 //////////////// Request  -  User    ///////////////////////////////
 
-app.get('/allUsers', (req, res) => {
-    const dataJSON = readFileUSER("users.json");
+app.get('/quiz/allUsers', (req, res) => {
+    const dataJSON = readFile("users.json");
     return sendResponse(res, dataJSON, 'view all users', 200);
+})
+
+app.post('/quiz/createUser', (req, res) => {                   //********* */
+    const { userName, q1, q2, q3, q4 } = req.body;
+    if (!userName || !q1 || !q2 || !q3 || !q4) {
+        return sendResponse(res, null, 'Please provide user data', 400);
+    }
+    const dataJSON = readFileUSER("users.json");
+    const found = dataJSON.some(el => el.userName === userName);
+    if (found) {
+        return sendResponse(res, null, 'user already exists with this name', 400);
+    }
+    const newUser = {
+        id: dataJSON.length + 1,
+        userName: userName,
+        ans: [q1, q2, q3, q4],
+        friendsResults: []
+    };
+    dataJSON.push(newUser);                                  //push obj to array
+    writeFile("users.json", JSON.stringify(dataJSON));     //write to the file all users
+    writeFile(userName.toString() + ".json", JSON.stringify(newUser));  //create new unique file with data for this user
+    return sendResponse(res, dataJSON, 'create obj User', 200);
+})
+
+
+app.post('/quiz/createUser/createFriend', (req, res) => {                   //********* */
+    const { userName, q1, q2, q3, q4 } = req.body;
+    if (!userName || !q1 || !q2 || !q3 || !q4) {
+        return sendResponse(res, null, 'Please provide user data', 400);
+    }
+
+    const id = parseInt(req.query.id);       //get the id parent from the link as parms
+    const dataJSON = readFileUSER("users.json");
+
+    const indexObjById = dataJSON.findIndex(item => item.id === id)
+    const name = dataJSON[indexObjById].userName;                     //i need get the name prop to know which file to put the information
+
+    const dataJSON = readFile("users.json");
+    const found = dataJSON.some(el => el.name === name);
+    if (found) {
+        return sendResponse(res, null, 'user already exists with this name', 400);
+    }
+    const newUser = {
+        id: dataJSON.length + 1,
+        userName: userName,
+        ans: [q1, q2, q3, q4],
+        friendsResults: []
+    };
+    dataJSON.push(newUser);                                  //push obj to array
+    writeFile("users.json", JSON.stringify(dataJSON));     //write to the file all users
+    writeFile(userName.toString() + ".json", JSON.stringify(newUser));  //create new unique file with data for this user
+    return sendResponse(res, dataJSON, 'create obj User', 200);
 })
 
 app.get('/quiz/results/userById', (req, res) => {             ///////************** */
@@ -150,31 +202,6 @@ app.get('/quiz/results/userName', (req, res) => {             ///////***********
     return sendResponse(res, data, 'view user by user name', 200);
 })
 
-app.post('/quiz/createUser', (req, res) => {                   //********* */
-    const { userName, name, q1, q2, q3, q4 } = req.body;
-    if (!userName || !name || !q1 || !q2 || !q3 || !q4) {
-        return sendResponse(res, null, 'Please provide user data', 400);
-    }
-    const dataJSON = readFileUSER("users.json");
-    const found = dataJSON.some(el => el.name === name);
-    if (found) {
-        return sendResponse(res, null, 'user already exists with this name', 400);
-    }
-    const newUser = {
-        id: dataJSON.length + 1,
-        userName,
-        name,
-        q1,
-        q2,
-        q3,
-        q4
-    };
-    dataJSON.push(newUser);                                  //push obj to array
-    console.log('dataJSON', dataJSON);                       //print the array
-    writeFileUSER("users.json", JSON.stringify(dataJSON));     //write to the file all users
-    writeFileUSER(name.toString() + ".json", JSON.stringify(newUser));  //create new unique file with data for this user
-    return sendResponse(res, dataJSON, 'create obj User', 200);
-})
 
 
 app.delete('/allUsers/deleteById', (req, res) => {
